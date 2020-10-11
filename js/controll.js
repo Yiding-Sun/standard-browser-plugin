@@ -27,43 +27,76 @@ function render() {
         zIndex: 9999
     });
 }
-function mapAll() {
-    function inform(name, to, type) {
-        for (var item in type) {
-            switch (item) {
-                case "on": break;
-                case "val":
-                    $(to).val($(name).val());
-                    break;
-                case "click":
-                    $(to).click();
-                    break;
-                case "attr":
-                    type.attr.forEach(v => $(to).attr(v, $(name).attr(v)));
-                    break;
-                case "css":
-                    type.css.forEach(v => $(to).css(v, $(name).css(v)));
-                    break;
-                default:
-                    console.error("item:" + item + " is not supported for now");
-            }
+function execAction(name, value, type) {
+    for (var a in type) {
+        switch (a) {
+            case "val":
+                $(name).val(value);
+                break;
+            case "click":
+                $(name).click();
+                break;
+            case "attr":
+                $(name).attr(type.attr, value);
+                break;
+            case "css":
+                $(name).css(type.css, value);
+                break;
+            default:
+                console.error("'" + a + "' in " + type + " don't belong to this in executing");
+                break;
         }
     }
-    pageData.patten.maps.forEach(map => {
-        map.types.forEach(type => {
-            switch (type.on) {
+}
+function getValue(name, type) {
+    for (var a in type) {
+        switch (a) {
+            case "on": break;
+            case "val":
+                return $(name).val();
+            case "attr":
+                return $(name).attr(type.attr);
+            case "css":
+                return $(name).css(type.css);
+            default:
+                console.error("'" + a + "' in " + type + " don't belong to this in getting value");
+                break;
+        }
+    }
+}
+function mapAll() {
+    function changeEmpty(a) {
+        return a == undefined ? {} : a;
+    }
+    var listeners = Object.assign({}, changeEmpty(pageData.userInterface.listeners), changeEmpty(pageData.patten.listeners));
+    var actions = Object.assign({}, changeEmpty(pageData.patten.actions), changeEmpty(pageData.userInterface.actions));
+    for (var listenName in listeners) {
+        //记得用let
+        let listener = listeners[listenName];
+        let action = actions[listenName];
+        if (action.useToShow == true) {
+            $(action.name).show();
+        }
+        listener.types.forEach(listenType => {
+            function run() {
+                action.types.forEach(actionType => {
+                    execAction(action.name, getValue(listener.name, listenType), actionType);
+                })
+            }
+            switch (listenType.on) {
                 case "start":
-                    inform(map.name, map.to, type);
+                    run();
                     break;
                 default:
-                    $(map.name).on(type.on, () => inform(map.name, map.to, type));
+                    $(listener.name).on(listenType.on, () => run());
+                    break;
             }
         })
-    })
+    }
 }
 function process() {
     render();
-    $("#page-show").append(pageData.html);
+    $("#page-show").append(pageData.userInterface.html);
     mapAll();
 
     //URL改变后自动刷新页面
@@ -75,7 +108,7 @@ function process() {
 
 }
 function matchURL(url) {
-    data.forEach(rule => rule.pattens.forEach(p => {
+    rules.forEach(rule => rule.pattens.forEach(p => {
         if (pageData == undefined && eval(p.url).test(url)) {
             pageData = rule;
             pageData.patten = p.patten;
